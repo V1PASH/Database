@@ -1,0 +1,11 @@
+{% extends "blog/base.html" %}
+{% block title %}Add a comment{% endblock %}
+{% block content %}
+  <h1 style="font-size:20px;margin-top:0">Add a comment</h1>
+  <form method="post">
+    {% csrf_token %}
+    <input name="author" placeholder="your name">
+    <textarea name="text" rows="4" placeholder="say something"></textarea>
+    <button type="submit">Save</button>
+  </form>
+{% endblock %}

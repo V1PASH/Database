@@ -1,0 +1,17 @@
+{% extends "blog/base.html" %}
+{% block title %}Articles{% endblock %}
+{% block content %}
+  <h1 style="font-size:20px;margin-top:0">{{ total }} article{{ total|pluralize }}</h1>
+  {% for article in articles %}
+    <article>
+      <h2><a href="{% url 'article-detail' article.pk %}">{{ article.title }}</a></h2>
+      <div class="meta">
+        id={{ article.pk }} · views={{ article.views }}
+        {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+      </div>
+    </article>
+  {% empty %}
+    <div class="empty">No published articles yet. <a href="{% url 'create-article' %}">Write one</a>.</div>
+  {% endfor %}
+  <p><a href="{% url 'create-article' %}">+ new article</a></p>
+{% endblock %}

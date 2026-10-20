@@ -53,7 +53,8 @@ they skip and the rest of the suite still runs.
 
 ```bash
 pip install minidb-db            # from PyPI
-pip install -e ".[dev]"           # from a clone, with the test tools
+pip install "minidb-db[django]"  # with Django, for the integration
+pip install -e ".[dev]"          # from a clone, with the test tools
 ```
 
 Then:
@@ -306,7 +307,82 @@ minidb-ui app.db --host 0.0.0.0  # bind elsewhere (see the warning above)
 
 ---
 
-## Where the data lives, and is it permanent?
+## Django
+
+minidb comes with a Django integration, so a Django project can keep its
+data in minidb.
+
+```python
+# settings.py
+MINIDB_PATH = "app.db"
+```
+
+Models that inherit from `MinidbModel` are stored in minidb, one document
+per row, with the Django primary key as the document's `_id`:
+
+```python
+from django.db import models
+from minidb.django import MinidbModel
+
+class Article(MinidbModel):
+    title = models.CharField(max_length=200)
+    views = models.IntegerField(default=0)
+    published = models.BooleanField(default=False)
+
+    class Meta:
+        app_label = "blog"
+```
+
+The queryset API works as usual, because Django's *lookups* are translated
+into minidb's query language rather than into SQL:
+
+```python
+Article.objects.create(title="Hello", views=12, published=True)
+
+Article.objects.filter(published=True)          # -> {"published": true}
+Article.objects.filter(views__gt=10)             # -> {"views": {"$gt": 10}}
+Article.objects.filter(title__icontains="hel")   # -> a regular expression
+Article.objects.filter(title__in=["a", "b"])     # -> {"$in": [...]}
+Article.objects.exclude(published=True)          # -> {"$nor": [...]}
+Article.objects.filter(Q(a=1) | Q(b=2))          # -> {"$or": [...]}
+Article.objects.order_by("-views")
+Article.objects.values("title", "views")
+Article.objects.values_list("title", flat=True)
+```
+
+Three of Django's pluggable interfaces are backed by minidb as well:
+
+```python
+# settings.py
+SESSION_ENGINE = "minidb.django.sessions"
+CACHES = {"default": {"BACKEND": "minidb.django.cache.MinidbCache"}}
+AUTHENTICATION_BACKENDS = ["minidb.django.auth.MinidbUserBackend"]
+```
+
+There is a working example project in `django_example/`:
+
+```bash
+cd django_example
+python manage.py migrate      # Django's own tables
+python manage.py runserver     # http://127.0.0.1:8000/
+```
+
+<img src="docs/django.png" alt="A Django site reading from minidb" width="100%">
+
+### What this is not
+
+**It is not a Django database backend.** Django's ORM speaks SQL, and
+minidb does not, so `DATABASES` still points at a relational database for
+Django's own tables (migrations, the content types table, the admin site).
+Models that inherit from `MinidbModel` live in minidb; models that inherit
+from `models.Model` are stored by Django as usual.
+
+The parts of the ORM that only exist to build SQL are refused with a clear
+error rather than failing quietly: `annotate()`, `select_related()` and
+`prefetch_related()` raise `NotSupportedError`. Aggregations, joins and
+sub-queries are the things to reach for minidb's own query language for.
+
+---
 
 **In one SQLite file, at the path you give it.** minidb is an *embedded*
 database, like SQLite: it lives inside your Python process and is reached

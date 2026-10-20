@@ -1,0 +1,27 @@
+{% extends "blog/base.html" %}
+{% block title %}{{ article.title }}{% endblock %}
+{% block content %}
+  <article>
+    <h2>{{ article.title }}</h2>
+    <div class="meta">id={{ article.pk }} · views={{ article.views }} · published={{ article.published }}</div>
+    <p>{{ article.body|linebreaks }}</p>
+  </article>
+
+  <h3 style="font-size:15px">{{ comments|length }} comment{{ comments|pluralize }}</h3>
+  {% for comment in comments %}
+    <article>
+      <div class="meta">{{ comment.author }}</div>
+      <p>{{ comment.text }}</p>
+    </article>
+  {% empty %}
+    <div class="empty">No comments yet.</div>
+  {% endfor %}
+
+  <form method="post" action="{% url 'add-comment' article.pk %}">
+    {% csrf_token %}
+    <input name="author" placeholder="your name">
+    <textarea name="text" rows="3" placeholder="say something"></textarea>
+    <button type="submit">Add comment</button>
+  </form>
+  <p><a href="{% url 'index' %}">← all articles</a></p>
+{% endblock %}

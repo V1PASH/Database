@@ -1,0 +1,12 @@
+{% extends "blog/base.html" %}
+{% block title %}New article{% endblock %}
+{% block content %}
+  <h1 style="font-size:20px;margin-top:0">New article</h1>
+  <form method="post">
+    {% csrf_token %}
+    <input name="title" placeholder="title">
+    <textarea name="body" rows="6" placeholder="the body"></textarea>
+    <button type="submit">Save</button>
+  </form>
+  <p><a href="{% url 'index' %}">← all articles</a></p>
+{% endblock %}

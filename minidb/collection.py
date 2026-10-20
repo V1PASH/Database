@@ -473,26 +473,48 @@ class Collection:
         return InsertManyResult(inserted_ids)
 
     def _upsert_document(self, filter: Any, update: Any) -> dict:
-        """Build the document to insert when an upsert finds no match."""
+        """Build the document to insert when an upsert finds no match.
+
+        A modifier update contributes its ``$set`` (and friends) on top of
+        the filter's equality conditions. A *replacement* update is the new
+        document, with the filter's conditions filling in anything it left
+        out.
+        """
         document: dict = {}
+
         if isinstance(filter, dict):
             for field, value in filter.items():
                 if field.startswith("$"):
                     continue
                 if isinstance(value, dict) and any(
-                    isinstance(key, str) and key.startswith("$") for key in value
+                    key.startswith("$") for key in value
                 ):
                     continue
                 if isinstance(value, dict):
                     for key, item in value.items():
-                        if isinstance(key, str) and key.startswith("$"):
+                        if key.startswith("$"):
                             continue
                         document.setdefault(field, {})[key] = item
                 else:
                     document[field] = value
-        if isinstance(update, dict) and "$set" in update:
-            for field, value in update["$set"].items():
-                _set_nested(document, field, value)
+
+        if not isinstance(update, dict):
+            return document
+
+        operators = [key for key in update if isinstance(key, str) and key.startswith("$")]
+        if not operators:
+            # A replacement: the update *is* the document.
+            replacement = dict(update)
+            for field, value in document.items():
+                replacement.setdefault(field, value)
+            return replacement
+
+        for operator, operand in update.items():
+            if operator == "$set":
+                for field, value in operand.items():
+                    _set_nested(document, field, value)
+            else:
+                apply_update(document, {operator: operand}, is_insert=True)
         return document
 
     def update_one(

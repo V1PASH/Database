@@ -359,6 +359,26 @@ class Storage:
         ).fetchone()
         return int(row["value"])
 
+    def next_id(self, collection: str) -> int:
+        """The next whole number to use as a document id for a collection.
+
+        Used by the Django integration, which needs a primary key the way a
+        relational table would have an auto-increment column.
+        """
+        name = f"id:{collection}"
+        self._connection.execute(
+            "INSERT INTO _minidb_counters (name, value) VALUES (?, 0) "
+            "ON CONFLICT(name) DO NOTHING",
+            (name,),
+        )
+        self._connection.execute(
+            "UPDATE _minidb_counters SET value = value + 1 WHERE name = ?", (name,)
+        )
+        row = self._connection.execute(
+            "SELECT value FROM _minidb_counters WHERE name = ?", (name,)
+        ).fetchone()
+        return int(row["value"])
+
     # -- indexes ------------------------------------------------------
 
     def create_index(
