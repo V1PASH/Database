@@ -1,5 +1,9 @@
 # minidb
 
+[![CI](https://github.com/V1PASH/Database/actions/workflows/ci.yml/badge.svg)](https://github.com/V1PASH/Database/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **A MongoDB-style document database, written from scratch.**
 
 You asked for a database of your own that behaves like MongoDB. This is one:
