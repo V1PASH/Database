@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>minidb</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">minidb</span>
+    <span class="db-path" id="db-path">connecting…</span>
+  </div>
+  <div class="topbar-right">
+    <span class="badge" id="version"></span>
+    <button class="ghost" id="refresh-all" title="Reload everything">↻ refresh</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <span>Collections</span>
+    </div>
+    <ul class="collection-list" id="collection-list"></ul>
+
+    <div class="sidebar-head">
+      <span>Indexes</span>
+    </div>
+    <ul class="index-list" id="index-list"></ul>
+  </aside>
+
+  <main class="main">
+    <div class="main-head">
+      <div>
+        <h1 id="collection-title">No collection selected</h1>
+        <p class="muted" id="collection-meta">Pick a collection on the left</p>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="browse">Browse</button>
+      <button class="tab" data-tab="query">Query</button>
+      <button class="tab" data-tab="aggregate">Aggregate</button>
+      <button class="tab" data-tab="insert">Insert</button>
+    </nav>
+
+    <section class="panel" id="panel-browse">
+      <div class="row">
+        <label class="field grow">
+          <span>Filter</span>
+          <input id="browse-filter" type="text" spellcheck="false" placeholder='{"status": "todo"}'>
+        </label>
+        <label class="field">
+          <span>Sort</span>
+          <input id="browse-sort" type="text" spellcheck="false" placeholder="-created_at">
+        </label>
+        <label class="field narrow">
+          <span>Limit</span>
+          <input id="browse-limit" type="number" value="50" min="1" max="1000">
+        </label>
+        <button class="primary" id="browse-run">Run</button>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="panel-query">
+      <div class="row">
+        <label class="field grow">
+          <span>Filter</span>
+          <input id="query-filter" type="text" spellcheck="false" placeholder='{"age": {"$gte": 30}}'>
+        </label>
+        <label class="field">
+          <span>Projection</span>
+          <input id="query-projection" type="text" spellcheck="false" placeholder='{"name": 1}'>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">
+          <span>Sort</span>
+          <input id="query-sort" type="text" spellcheck="false" placeholder="-age">
+        </label>
+        <label class="field narrow">
+          <span>Limit</span>
+          <input id="query-limit" type="number" value="50" min="1" max="1000">
+        </label>
+        <label class="field narrow">
+          <span>Skip</span>
+          <input id="query-skip" type="number" value="0" min="0">
+        </label>
+        <button class="primary" id="query-run">Run query</button>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="panel-aggregate">
+      <label class="field">
+        <span>Pipeline</span>
+        <textarea id="aggregate-pipeline" rows="8" spellcheck="false">[
+  { "$match": { "status": "todo" } },
+  { "$group": { "_id": "$assignee_id", "count": { "$sum": 1 } } }
+]</textarea>
+      </label>
+      <button class="primary" id="aggregate-run">Run pipeline</button>
+    </section>
+
+    <section class="panel hidden" id="panel-insert">
+      <label class="field">
+        <span>Document</span>
+        <textarea id="insert-document" rows="10" spellcheck="false">{
+  "name": "A new document",
+  "value": 42
+}</textarea>
+      </label>
+      <button class="primary" id="insert-run">Insert document</button>
+    </section>
+
+    <div class="status" id="status"></div>
+
+    <div class="results" id="results"></div>
+  </main>
+
+  <aside class="drawer hidden" id="drawer">
+    <div class="drawer-head">
+      <span id="drawer-title">Document</span>
+      <div class="drawer-actions">
+        <button class="ghost small" id="drawer-toggle" title="Switch between highlighted and raw JSON">{}</button>
+        <button class="ghost small" id="drawer-close">✕</button>
+      </div>
+    </div>
+    <div class="drawer-body">
+      <pre id="drawer-json" class="json"></pre>
+    </div>
+    <div class="drawer-foot">
+      <button class="danger" id="drawer-delete">Delete document</button>
+    </div>
+  </aside>
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

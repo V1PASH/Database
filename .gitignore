@@ -7,6 +7,10 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Build artifacts
+build/
+dist/
+
 # The database files themselves
 *.db
 *.db-wal

@@ -1,21 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "minidb"
-version = "0.1.0"
-description = "A MongoDB-style document database written from scratch, with schema validation and a Python access layer."
+description = "A MongoDB-style document database written from scratch, with schema validation and a built-in web UI."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "V1PASH" }]
+keywords = [
+    "database",
+    "document-database",
+    "nosql",
+    "mongodb",
+    "embedded-database",
+    "sqlite",
+    "query-engine",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Database :: Database Engines/Servers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pyflakes>=3.0",
+    "build>=1.0",
+    "twine>=5.0",
+    "pymongo>=4.0",
+]
 
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+[project.urls]
+Homepage = "https://github.com/V1PASH/Database"
+Repository = "https://github.com/V1PASH/Database"
+Issues = "https://github.com/V1PASH/Database/issues"
+
+[project.scripts]
+minidb-ui = "minidb.webui.__main__:main"
 
 [tool.setuptools]
-packages = ["minidb", "schemas"]
+packages = ["minidb", "minidb.webui"]
+
+[tool.setuptools.dynamic]
+version = { attr = "minidb.__version__" }
+
+[tool.setuptools.package-data]
+"minidb.webui" = ["static/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.pyflakes]
+max-line-length = 100

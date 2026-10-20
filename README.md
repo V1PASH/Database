@@ -32,7 +32,7 @@ both databases and the results compared:
 
 ```
 $ pytest tests/ -q
-145 passed
+163 passed
 ```
 
 That suite is what pinned down the subtle parts of MongoDB's behaviour --
@@ -48,12 +48,17 @@ they skip and the rest of the suite still runs.
 ## Getting started
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
+pip install minidb                # from PyPI
+pip install -e ".[dev]"           # from a clone, with the test tools
+```
 
-.venv/bin/python -m app.demo          # a guided tour of the example app
-.venv/bin/python -m bench.benchmark   # what indexes buy you
-.venv/bin/python -m pytest tests/ -q  # the test suite
+Then:
+
+```bash
+python -m app.demo          # a guided tour of the example app
+python -m bench.benchmark   # what indexes buy you
+pytest tests/ -q            # the test suite
+minidb-ui app.db            # browse the database in your browser
 ```
 
 The package has **no runtime dependencies** -- it is pure Python on top of
@@ -211,6 +216,39 @@ On 20,000 documents, a compound index turned a 55.9 ms scan into a
 
 ---
 
+## The web UI
+
+Every database deserves a way to look at it. minidb ships with one:
+
+```bash
+minidb-ui app.db            # or: python -m minidb.webui app.db
+```
+
+No data yet? Seed a sample database first:
+
+```bash
+python -c "from minidb import Database; from minidb.demo import seed; seed(Database('demo.db'))"
+minidb-ui demo.db
+```
+
+<img src="docs/ui.png" alt="The minidb web UI" width="100%">
+
+It opens on `http://127.0.0.1:8080` and gives you:
+
+- **Browse** -- every collection with its document count, its indexes, and a
+  filter/sort/limit toolbar
+- **Query** -- a filter, a projection, a sort, a limit and a skip
+- **Aggregate** -- a whole aggregation pipeline
+- **Insert** -- a document, validated by the collection's schema
+- **Document detail** -- click any document for highlighted JSON, and delete
+  it from there
+
+The server is built on `http.server` from the standard library, so it has no
+dependencies of its own. It binds to localhost and has **no authentication**:
+it is a local development tool, not something to expose to a network.
+
+---
+
 ## The example application
 
 `app/` is a small but complete backend built on the database:
@@ -291,10 +329,17 @@ minidb/          the database
   bson.py          document codec
   objectid.py      ObjectId
   database.py      the Database object
+  demo.py          sample data
+  webui/           the web UI (stdlib only)
+    server.py        the HTTP API
+    static/          the browser app
 schemas/         the example app's schemas
 app/             the example app
 bench/           benchmarks
+docs/            the screenshot
 tests/
   test_minidb.py    unit tests
   test_parity.py    minidb vs. real MongoDB
+  test_webui.py     the web UI's API
+  frontend_smoke.mjs  the browser code, in a DOM shim
 ```
