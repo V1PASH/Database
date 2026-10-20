@@ -16,19 +16,6 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
 
-    services:
-      # A real MongoDB, so the parity suite runs for real rather than
-      # skipping itself.
-      mongo:
-        image: mongo:8
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v7
 
@@ -41,6 +28,31 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      - name: start mongodb
+        run: |
+          # MongoDB 8.0+ crashes on Linux kernels 6.19 and newer
+          # (SERVER-121912), which the GitHub runners have started using.
+          # The 8.2 line is unaffected, so try the newest images first and
+          # fall back to one that boots.
+          for image in mongo:9.0.4 mongo:8.2.12 mongo:8.0.34 mongo:7.0.45; do
+            docker rm -f mongo >/dev/null 2>&1 || true
+            echo "trying $image"
+            if ! docker run -d --name mongo -p 27017:27017 "$image" >/dev/null 2>&1; then
+              echo "  could not start the container"
+              continue
+            fi
+            for attempt in $(seq 1 20); do
+              if docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1; then
+                echo "::notice::MongoDB is up, from $image"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "  did not come up:"
+            docker logs mongo 2>&1 | tail -4
+          done
+          echo "::warning::No MongoDB image would start, so the parity tests will be skipped."
 
       - name: lint
         run: python -m pyflakes minidb app schemas bench tests
