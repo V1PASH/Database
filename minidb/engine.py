@@ -471,6 +471,15 @@ class Storage:
         ).fetchone()
         return int(row["total"])
 
+    def data_size(self, collection: str) -> int:
+        """How many bytes the stored documents take up."""
+        row = self._connection.execute(
+            "SELECT COALESCE(SUM(LENGTH(data)), 0) AS total "
+            "FROM _minidb_documents WHERE collection = ?",
+            (collection,),
+        ).fetchone()
+        return int(row["total"])
+
     def get(self, collection: str, doc_id: str) -> dict | None:
         row = self._connection.execute(
             "SELECT data FROM _minidb_documents WHERE collection = ? AND doc_id = ?",

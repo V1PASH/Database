@@ -147,6 +147,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(self._run_query(collection, body))
             elif action == "aggregate":
                 self._send_json(self._run_aggregate(collection, body))
+            elif action == "explain":
+                self._send_json(self._run_explain(collection, body))
             elif action == "insert":
                 self._send_json(self._insert(collection, body))
             elif action == "update":
@@ -238,6 +240,8 @@ class _Handler(BaseHTTPRequestHandler):
             }))
         elif action == "indexes":
             self._send_json(collection.list_indexes())
+        elif action == "stats":
+            self._send_json(collection.stats())
         else:
             self._send_error_json(f"unknown action {action!r}", 404)
 
@@ -258,6 +262,11 @@ class _Handler(BaseHTTPRequestHandler):
             "total": len(collection),
             "milliseconds": _since(started),
         }
+
+    def _run_explain(self, collection: Any, body: dict) -> dict:
+        """Show how a query would be answered."""
+        filter = body.get("filter") or {}
+        return collection.explain(filter)
 
     def _run_aggregate(self, collection: Any, body: dict) -> dict:
         pipeline = body.get("pipeline") or []
@@ -361,7 +370,7 @@ class _Server(ThreadingHTTPServer):
 
 
 def create_server(
-    database: Database, host: str = "127.0.0.1", port: int = 8080, verbose: bool = False
+    database: Database, host: str = "127.0.0.1", port: int = 5433, verbose: bool = False
 ) -> _Server:
     """Build (but do not start) the web UI server."""
     return _Server((host, port), database, verbose)
@@ -370,7 +379,7 @@ def create_server(
 def serve(
     database: Database,
     host: str = "127.0.0.1",
-    port: int = 8080,
+    port: int = 5433,
     verbose: bool = False,
     open_browser: bool = True,
 ) -> None:

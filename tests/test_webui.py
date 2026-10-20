@@ -212,6 +212,26 @@ def test_an_unknown_route_is_a_404(server):
     assert get(f"{server}/nowhere")[0] == 404
 
 
+def test_collection_stats(server):
+    status, body = get(f"{server}/api/collections/people/stats")
+    assert status == 200
+    payload = json.loads(body)
+    assert payload["count"] == 3
+    assert payload["dataSize"] > 0
+    names = {field["name"] for field in payload["schema"]}
+    assert "name" in names and "age" in names
+
+
+def test_explain(server):
+    status, payload = post(
+        f"{server}/api/collections/people/explain", {"filter": {"name": "Ada"}}
+    )
+    assert status == 200
+    assert payload["strategy"] in ("IXSCAN", "COLLSCAN")
+    assert payload["totalDocuments"] == 3
+    assert payload["documentsMatched"] == 1
+
+
 def test_extended_types_are_shown_the_mongo_way():
     import datetime as _dt
     from decimal import Decimal

@@ -95,7 +95,7 @@ layout.classList.add("layout");
 // they are created up front.
 const tabBar = new Element("div");
 tabBar.id = "tabs";
-for (const name of ["browse", "query", "aggregate", "insert"]) {
+for (const name of ["browse", "query", "aggregate", "insert", "info"]) {
   const tab = new Element("button");
   tab.classList.add("tab");
   tab.dataset.tab = name;
@@ -158,6 +158,20 @@ const routes = {
     indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
     validator: null,
   },
+  "/api/collections/users/stats": {
+    count: 2,
+    dataSize: 2048,
+    indexCount: 2,
+    indexes: [
+      { name: "_id_", key: { _id: 1 }, unique: true },
+      { name: "email_1", key: { email: 1 }, unique: true },
+    ],
+    schema: [
+      { name: "age", types: ["integer"], count: 2, optional: false },
+      { name: "name", types: ["string"], count: 1, optional: true },
+    ],
+    validator: null,
+  },
 };
 
 async function fakeFetch(url) {
@@ -178,6 +192,20 @@ async function fakeFetch(url) {
       ok: true,
       status: 200,
       text: async () => JSON.stringify({ documents: DOCUMENTS, count: 2, milliseconds: 1 }),
+    };
+  }
+  if (path.endsWith("/explain")) {
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          strategy: "IXSCAN",
+          index: "email_1",
+          documentsExamined: 1,
+          totalDocuments: 2,
+          documentsMatched: 1,
+        }),
     };
   }
   return { ok: false, status: 404, text: async () => JSON.stringify({ error: "not found" }) };
@@ -202,7 +230,7 @@ function check(name, condition, detail = "") {
 
 const sandbox = {
   document: documentShim,
-  window: { confirm: () => true },
+  window: { confirm: () => true, location: { search: "" } },
   fetch: fakeFetch,
   setTimeout,
   clearTimeout,
@@ -214,6 +242,7 @@ const sandbox = {
   Set,
   Math,
   Error,
+  URLSearchParams,
 };
 sandbox.globalThis = sandbox;
 
@@ -285,6 +314,35 @@ check(
 tabs[1].click();
 check("the query panel opens", !el("panel-query").classList.contains("hidden"));
 check("the browse panel closes", el("panel-browse").classList.contains("hidden"));
+
+// The info tab: statistics, inferred schema and indexes.
+tabs[4].click();
+await new Promise((resolve) => setTimeout(resolve, 30));
+check("the info panel opens", !el("panel-info").classList.contains("hidden"));
+check(
+  "the statistics are shown",
+  el("stats").children.length === 4,
+  `got ${el("stats").children.length}`
+);
+check(
+  "the schema is listed",
+  el("schema-body").children.length === 2,
+  `got ${el("schema-body").children.length}`
+);
+check(
+  "the indexes are listed",
+  el("indexes-body").children.length === 2,
+  `got ${el("indexes-body").children.length}`
+);
+
+// The explain button shows the query plan.
+el("browse-explain").click();
+await new Promise((resolve) => setTimeout(resolve, 30));
+check("the plan is shown", !el("plan").classList.contains("hidden"));
+check(
+  "the plan names the index",
+  el("plan").children.some((child) => child.children.some((part) => part._text === "email_1"))
+);
 
 console.log("");
 if (failures.length) {

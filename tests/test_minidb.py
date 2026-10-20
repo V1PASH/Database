@@ -392,6 +392,64 @@ def test_elem_match_query(db):
     assert db.orders.count_documents({"items": {"$elemMatch": {"qty": {"$gt": 3}}}}) == 1
 
 
+def test_inferred_schema_describes_the_data(db):
+    db.create_collection("things")
+    db.things.insert_many(
+        [
+            {"name": "Ada", "age": 36, "address": {"city": "London"}},
+            {"name": "Alan", "tags": ["x", "y"]},
+        ]
+    )
+
+    fields = {field["name"]: field for field in db.things.inferred_schema()}
+
+    assert fields["name"]["types"] == ["string"]
+    assert fields["name"]["optional"] is False       # in every document
+    assert fields["age"]["optional"] is True          # only in one
+    assert fields["age"]["count"] == 1
+    assert fields["address.city"]["types"] == ["string"]
+    assert fields["tags"]["types"] == ["array"]
+
+def test_inferred_schema_notices_several_types(db):
+    db.create_collection("things")
+    db.things.insert_many([{"value": 1}, {"value": "two"}])
+    fields = {field["name"]: field for field in db.things.inferred_schema()}
+    assert fields["value"]["types"] == ["int", "string"]
+
+
+def test_collection_stats(db):
+    db.create_collection("things")
+    db.things.insert_many([{"a": 1}, {"a": 2}])
+    db.things.create_index("a")
+
+    stats = db.things.stats()
+    assert stats["count"] == 2
+    assert stats["dataSize"] > 0
+    assert stats["indexCount"] == 2          # _id_ and a_1
+    assert {field["name"] for field in stats["schema"]} == {"_id", "a"}
+
+
+def test_explain_reports_the_plan(db):
+    db.create_collection("things")
+    db.things.insert_many([{"n": index} for index in range(10)])
+    db.things.create_index("n")
+
+    plan = db.things.explain({"n": 3})
+    assert plan["strategy"] == "IXSCAN"
+    assert plan["index"] == "n_1"
+    assert plan["documentsExamined"] == 1
+    assert plan["documentsMatched"] == 1
+    assert plan["totalDocuments"] == 10
+
+
+def test_explain_falls_back_to_a_scan(db):
+    db.create_collection("things")
+    db.things.insert_many([{"n": index} for index in range(10)])
+    plan = db.things.explain({"n": 3})
+    assert plan["strategy"] == "COLLSCAN"
+    assert plan["documentsExamined"] == 10
+
+
 def test_unknown_operator_is_reported(people):
     with pytest.raises(WriteError):
         list(people.find({"age": {"$bogus": 1}}))

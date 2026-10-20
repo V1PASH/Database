@@ -231,7 +231,8 @@ On 20,000 documents, a compound index turned a 55.9 ms scan into a
 
 ## The web UI
 
-Every database deserves a way to look at it. minidb ships with one:
+Every database deserves a way to look at it. minidb ships with one -- a
+browser app in the spirit of MongoDB Compass:
 
 ```bash
 minidb-ui app.db            # or: python -m minidb.webui app.db
@@ -246,19 +247,40 @@ minidb-ui demo.db
 
 <img src="docs/ui.png" alt="The minidb web UI" width="100%">
 
-It opens on `http://127.0.0.1:8080` and gives you:
+It opens on **http://127.0.0.1:5433** and gives you:
 
 - **Browse** -- every collection with its document count, its indexes, and a
   filter/sort/limit toolbar
 - **Query** -- a filter, a projection, a sort, a limit and a skip
 - **Aggregate** -- a whole aggregation pipeline
 - **Insert** -- a document, validated by the collection's schema
+- **Info** -- statistics (documents, data size, indexes, fields), the
+  **schema inferred from the data** (every field, its type, and how often it
+  is present), the index list and the collection's validator
+- **Explain** -- the query plan for the current filter: which index was
+  used, how many documents were examined, how many matched
 - **Document detail** -- click any document for highlighted JSON, and delete
   it from there
+
+Deep links work too: `?collection=users&tab=info` opens straight to that
+collection and tab.
 
 The server is built on `http.server` from the standard library, so it has no
 dependencies of its own. It binds to localhost and has **no authentication**:
 it is a local development tool, not something to expose to a network.
+
+### Which port?
+
+**minidb itself has no port.** It is an *embedded* database, like SQLite: it
+lives inside your Python process and is reached through function calls, not
+through a socket. There is no server to connect to, and no port to open.
+
+The only network port is the GUI's, and it defaults to **5433**:
+
+```bash
+minidb-ui app.db --port 9000     # change it
+minidb-ui app.db --host 0.0.0.0  # bind elsewhere (see the warning above)
+```
 
 ---
 
@@ -352,6 +374,7 @@ minidb/          the database
   update.py        update operators
   aggregation.py   the pipeline
   validation.py    schemas
+  schema.py        inferring a schema from the data
   index.py         key encoding + planner
   engine.py        SQLite storage layer
   comparison.py    BSON value ordering

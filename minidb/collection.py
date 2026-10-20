@@ -317,6 +317,28 @@ class Collection:
             return document
         return None
 
+    def inferred_schema(self, sample: int = 200) -> list[dict]:
+        """The fields this collection's documents actually contain.
+
+        This is inferred from the stored data, so it describes reality
+        rather than what the schema says should be there.
+        """
+        from .schema import infer_schema
+
+        return infer_schema(self._read(None), sample)
+
+    def stats(self, sample: int = 200) -> dict:
+        """A summary of the collection: size, indexes and inferred schema."""
+        indexes = self.list_indexes()
+        return {
+            "count": len(self),
+            "dataSize": self._storage.data_size(self._name),
+            "indexCount": len(indexes),
+            "indexes": indexes,
+            "schema": self.inferred_schema(sample),
+            "validator": self.validator.schema if self.validator else None,
+        }
+
     def explain(self, filter: Any = None) -> dict:
         """Show how a query would be answered.
 

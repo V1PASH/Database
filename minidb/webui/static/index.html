@@ -47,6 +47,7 @@
       <button class="tab" data-tab="query">Query</button>
       <button class="tab" data-tab="aggregate">Aggregate</button>
       <button class="tab" data-tab="insert">Insert</button>
+      <button class="tab" data-tab="info">Info</button>
     </nav>
 
     <section class="panel" id="panel-browse">
@@ -64,6 +65,7 @@
           <input id="browse-limit" type="number" value="50" min="1" max="1000">
         </label>
         <button class="primary" id="browse-run">Run</button>
+        <button class="ghost" id="browse-explain" title="Show the query plan">Explain</button>
       </div>
     </section>
 
@@ -92,6 +94,7 @@
           <input id="query-skip" type="number" value="0" min="0">
         </label>
         <button class="primary" id="query-run">Run query</button>
+        <button class="ghost" id="query-explain" title="Show the query plan">Explain</button>
       </div>
     </section>
 
@@ -116,6 +119,38 @@
       </label>
       <button class="primary" id="insert-run">Insert document</button>
     </section>
+
+    <section class="panel hidden" id="panel-info">
+      <div class="stats" id="stats"></div>
+
+      <div class="info-section">
+        <h2>Inferred schema</h2>
+        <p class="muted small">The fields the stored documents actually contain.</p>
+        <table class="schema">
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Present</th></tr>
+          </thead>
+          <tbody id="schema-body"></tbody>
+        </table>
+      </div>
+
+      <div class="info-section">
+        <h2>Indexes</h2>
+        <table class="schema">
+          <thead>
+            <tr><th>Name</th><th>Key</th><th>Unique</th></tr>
+          </thead>
+          <tbody id="indexes-body"></tbody>
+        </table>
+      </div>
+
+      <div class="info-section" id="validator-section">
+        <h2>Validator</h2>
+        <pre class="json" id="validator-json"></pre>
+      </div>
+    </section>
+
+    <div class="plan hidden" id="plan"></div>
 
     <div class="status" id="status"></div>
 

@@ -249,6 +249,84 @@ h1 { font-size: 19px; margin: 0 0 2px; font-weight: 650; }
   .layout.with-drawer { grid-template-columns: 1fr; }
 }
 
+/* ---------- info tab ---------- */
+
+.stats {
+  display: flex;
+  gap: 34px;
+  padding: 4px 0 10px;
+  flex-wrap: wrap;
+}
+.stat { display: flex; flex-direction: column; gap: 3px; }
+.stat .value { font-size: 22px; font-weight: 650; font-family: var(--mono); }
+.stat .label {
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.info-section { width: 100%; margin-bottom: 14px; }
+.info-section h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+.muted.small { font-size: 12px; margin-bottom: 10px; }
+
+table.schema {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+table.schema th {
+  text-align: left;
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+table.schema td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #1c212c;
+}
+table.schema tbody tr:hover { background: var(--panel); }
+table.schema td.type { color: #a5d6ff; }
+table.schema td.optional { color: var(--orange); }
+table.schema td.required { color: var(--green); }
+
+/* ---------- query plan ---------- */
+
+.plan {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--accent-dim);
+  background: #121a28;
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.plan .plan-item { display: flex; flex-direction: column; gap: 2px; }
+.plan .plan-label {
+  font-size: 9.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.plan .plan-value { color: var(--text); }
+.plan .plan-value.good { color: var(--green); }
+.plan .plan-value.warn { color: var(--orange); }
+
 /* ---------- utilities ---------- */
 
 /* The hidden utility has to win over the layout rules above it. */

@@ -393,6 +393,143 @@ async function deleteSelected() {
 
 /* ---------- wiring ---------- */
 
+async function runExplain() {
+  if (!state.collection) return;
+  try {
+    const filter = parseJson(
+      state.mode === "query" ? $("query-filter").value : $("browse-filter").value,
+      {}
+    );
+    const plan = await api(
+      `/api/collections/${encodeURIComponent(state.collection)}/explain`,
+      { method: "POST", body: JSON.stringify({ filter }) }
+    );
+    renderPlan(plan);
+  } catch (error) {
+    status(error.message, "error");
+  }
+}
+
+function renderPlan(plan) {
+  const panel = $("plan");
+  panel.textContent = "";
+
+  const items = [
+    ["strategy", plan.strategy, plan.strategy === "IXSCAN" ? "good" : "warn"],
+    ["index", plan.index || "none", ""],
+    ["examined", `${plan.documentsExamined} of ${plan.totalDocuments}`, ""],
+    ["matched", plan.documentsMatched, "good"],
+  ];
+
+  for (const [label, value, kind] of items) {
+    const item = document.createElement("div");
+    item.className = "plan-item";
+
+    const caption = document.createElement("span");
+    caption.className = "plan-label";
+    caption.textContent = label;
+
+    const text = document.createElement("span");
+    text.className = `plan-value ${kind}`;
+    text.textContent = value;
+
+    item.append(caption, text);
+    panel.appendChild(item);
+  }
+
+  panel.classList.remove("hidden");
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "kB", "MB", "GB"];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+async function loadCollectionInfo() {
+  if (!state.collection) return;
+  const stats = await api(`/api/collections/${encodeURIComponent(state.collection)}/stats`);
+
+  const summary = $("stats");
+  summary.textContent = "";
+  const figures = [
+    ["Documents", stats.count],
+    ["Data size", formatBytes(stats.dataSize)],
+    ["Indexes", stats.indexCount],
+    ["Fields", stats.schema.length],
+  ];
+  for (const [label, value] of figures) {
+    const stat = document.createElement("div");
+    stat.className = "stat";
+    const number = document.createElement("span");
+    number.className = "value";
+    number.textContent = value;
+    const caption = document.createElement("span");
+    caption.className = "label";
+    caption.textContent = label;
+    stat.append(number, caption);
+    summary.appendChild(stat);
+  }
+
+  const schemaBody = $("schema-body");
+  schemaBody.textContent = "";
+  for (const field of stats.schema) {
+    const row = document.createElement("tr");
+
+    const name = document.createElement("td");
+    name.textContent = field.name;
+
+    const type = document.createElement("td");
+    type.className = "type";
+    type.textContent = field.types.join(" | ");
+
+    const present = document.createElement("td");
+    present.className = field.optional ? "optional" : "required";
+    present.textContent = field.optional
+      ? `${field.count} of ${stats.count}`
+      : "always";
+
+    row.append(name, type, present);
+    schemaBody.appendChild(row);
+  }
+
+  const indexesBody = $("indexes-body");
+  indexesBody.textContent = "";
+  for (const index of stats.indexes) {
+    const row = document.createElement("tr");
+
+    const name = document.createElement("td");
+    name.textContent = index.name;
+
+    const key = document.createElement("td");
+    key.className = "type";
+    key.textContent = Object.entries(index.key || {})
+      .map(([field, direction]) => `${field}: ${direction}`)
+      .join(", ");
+
+    const unique = document.createElement("td");
+    unique.className = index.unique ? "required" : "optional";
+    unique.textContent = index.unique ? "yes" : "no";
+
+    row.append(name, key, unique);
+    indexesBody.appendChild(row);
+  }
+
+  const validatorSection = $("validator-section");
+  if (stats.validator) {
+    validatorSection.classList.remove("hidden");
+    $("validator-json").innerHTML = highlight(stats.validator);
+  } else {
+    validatorSection.classList.add("hidden");
+  }
+}
+
 function switchTab(mode) {
   state.mode = mode;
   for (const tab of document.querySelectorAll(".tab")) {
@@ -401,14 +538,28 @@ function switchTab(mode) {
   for (const panel of document.querySelectorAll(".panel")) {
     panel.classList.toggle("hidden", panel.id !== `panel-${mode}`);
   }
+  if (mode === "info") {
+    loadCollectionInfo().catch((error) => status(error.message, "error"));
+  }
 }
 
 async function boot() {
   try {
     await loadInfo();
     await loadCollections();
-    if (state.collections.length) {
-      await selectCollection(state.collections[0].name);
+
+    // Deep links: ?collection=users&tab=info
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("collection");
+    const tab = params.get("tab");
+
+    const chosen =
+      (wanted && state.collections.find((c) => c.name === wanted)) ||
+      state.collections[0];
+
+    if (chosen) {
+      await selectCollection(chosen.name);
+      if (tab) switchTab(tab);
     } else {
       $("collection-title").textContent = "This database is empty";
       $("collection-meta").textContent =
@@ -428,7 +579,9 @@ $("tabs").addEventListener("click", (event) => {
   if (tab) switchTab(tab.dataset.tab);
 });
 $("browse-run").addEventListener("click", runBrowse);
+$("browse-explain").addEventListener("click", runExplain);
 $("query-run").addEventListener("click", runQuery);
+$("query-explain").addEventListener("click", runExplain);
 $("aggregate-run").addEventListener("click", runAggregate);
 $("insert-run").addEventListener("click", runInsert);
 $("browse-filter").addEventListener("keydown", (event) => {
