@@ -30,7 +30,14 @@ from typing import Any
 from .errors import InvalidDocument
 from .objectid import ObjectId
 
-__all__ = ["Document", "dumps", "loads", "encode_value", "decode_value"]
+__all__ = [
+    "Document",
+    "dumps",
+    "loads",
+    "encode_value",
+    "decode_value",
+    "to_jsonable",
+]
 
 
 class Document(dict):
@@ -148,4 +155,41 @@ def decode_value(value: Any) -> Any:
         return _object_hook(value)
     if isinstance(value, list):
         return [_tag_to_python(item) for item in value]
+    return value
+
+
+def to_jsonable(value: Any) -> Any:
+    """Make a stored value safe to hand to a JSON encoder.
+
+    The extended types are written the way MongoDB's Extended JSON writes
+    them, so the output is familiar to anyone who has used a MongoDB shell::
+
+        ObjectId("...")  ->  {"$oid": "..."}
+        datetime         ->  {"$date": "2026-10-20T12:00:00+00:00"}
+        Decimal("1.5")   ->  {"$numberDecimal": "1.5"}
+        b"hi"            ->  {"$binary": "aGk="}
+    """
+    import base64 as _base64
+    import datetime as _datetime
+    import uuid as _uuid
+    from decimal import Decimal as _Decimal
+
+    from .objectid import ObjectId as _ObjectId
+
+    if isinstance(value, _ObjectId):
+        return {"$oid": str(value)}
+    if isinstance(value, _datetime.datetime):
+        return {"$date": value.isoformat()}
+    if isinstance(value, _datetime.date):
+        return {"$date": value.isoformat()}
+    if isinstance(value, _uuid.UUID):
+        return {"$uuid": str(value)}
+    if isinstance(value, _Decimal):
+        return {"$numberDecimal": str(value)}
+    if isinstance(value, (bytes, bytearray)):
+        return {"$binary": _base64.b64encode(bytes(value)).decode("ascii")}
+    if isinstance(value, dict):
+        return {key: to_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_jsonable(item) for item in value]
     return value

@@ -57,12 +57,16 @@ class MinidbModel(models.Model):
         return instance
 
     def to_document(self) -> dict:
-        """The document that represents this instance."""
+        """The document that represents this instance.
+
+        ``pre_save`` is used rather than ``value_from_object`` because it
+        is what applies ``auto_now`` and ``auto_now_add``.
+        """
         document: dict[str, Any] = {}
         for field in self._meta.concrete_fields:
             if field.primary_key:
                 continue
-            document[field.attname] = field.value_from_object(self)
+            document[field.attname] = field.pre_save(self, False)
         return document
 
     # -- writing ---------------------------------------------------------

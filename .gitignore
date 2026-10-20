@@ -20,3 +20,8 @@ dist/
 .idea/
 .vscode/
 .DS_Store
+
+# The voice service's own databases
+voice_service/*.db
+voice_service/*.db-wal
+voice_service/*.db-shm

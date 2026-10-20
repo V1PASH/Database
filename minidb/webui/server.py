@@ -12,17 +12,14 @@ expose it to a network.
 
 from __future__ import annotations
 
-import base64
-import datetime as _dt
 import json
 import threading
-import uuid
-from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ..bson import to_jsonable
 from ..errors import MiniDBError
 from ..objectid import ObjectId
 from .workspace import Workspace
@@ -30,31 +27,6 @@ from .workspace import Workspace
 __all__ = ["serve", "create_server", "to_jsonable"]
 
 STATIC_DIR = Path(__file__).parent / "static"
-
-
-def to_jsonable(value: Any) -> Any:
-    """Convert a stored value into something ``json.dumps`` can handle.
-
-    The extended types are written the way MongoDB's Extended JSON writes
-    them, so the output is familiar to anyone who has used a MongoDB shell.
-    """
-    if isinstance(value, ObjectId):
-        return {"$oid": str(value)}
-    if isinstance(value, _dt.datetime):
-        return {"$date": value.isoformat()}
-    if isinstance(value, _dt.date):
-        return {"$date": value.isoformat()}
-    if isinstance(value, uuid.UUID):
-        return {"$uuid": str(value)}
-    if isinstance(value, Decimal):
-        return {"$numberDecimal": str(value)}
-    if isinstance(value, (bytes, bytearray)):
-        return {"$binary": base64.b64encode(bytes(value)).decode("ascii")}
-    if isinstance(value, dict):
-        return {key: to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [to_jsonable(item) for item in value]
-    return value
 
 
 class _Handler(BaseHTTPRequestHandler):

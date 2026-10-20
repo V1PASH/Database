@@ -435,6 +435,36 @@ Copying the file by hand is fine once the database is closed.
 
 ---
 
+## A service built on it
+
+`voice_service/` is a Django microservice that keeps everything in minidb. It
+has two collections:
+
+- **`models`** -- a registry of the models an agent can be built from: an
+  **LLM**, a **text-to-speech** model or a **speech-to-text** model
+- **`agent`** -- the agents themselves: a name, a prompt, and the three models
+  each one is wired together from (`stt`, `model`, `tts`), plus a `slug`, a
+  `handle` and a `config`
+
+```bash
+cd voice_service
+python manage.py seed           # some example models and agents
+python manage.py runserver       # http://127.0.0.1:8000/
+```
+
+```bash
+curl http://127.0.0.1:8000/api/models?kind=llm
+curl http://127.0.0.1:8000/api/agents
+```
+
+The storage layer adds back what a document store does not give you:
+schemas that reject bad documents, unique slugs, references that have to
+point at models that exist (and be the right *kind* of model), and a rule
+that a model in use cannot be deleted. See `voice_service/README.md` for
+the whole API.
+
+---
+
 ## The example application
 
 `app/` is a small but complete backend built on the database:
@@ -540,10 +570,13 @@ minidb/          the database
 schemas/         the example app's schemas
 app/             the example app
 bench/           benchmarks
-docs/            the screenshot
+docs/            the screenshots
+django_example/  a Django site reading from minidb
+voice_service/   a Django microservice with a JSON API
 tests/
   test_minidb.py    unit tests
   test_parity.py    minidb vs. real MongoDB
+  test_django.py    the Django integration
   test_webui.py     the web UI's API
   frontend_smoke.mjs  the browser code, in a DOM shim
 ```
