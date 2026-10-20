@@ -23,6 +23,10 @@ jobs:
   publish:
     runs-on: ubuntu-24.04
 
+    # The "release" environment is what PyPI's trusted publisher is bound to.
+    # It exists so that only tagged releases can publish.
+    environment: release
+
     permissions:
       id-token: write   # the token PyPI trusts the workflow to request
 
