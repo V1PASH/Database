@@ -1,15 +1,24 @@
 /* minidb web UI */
 
 const state = {
-  collections: [],
+  databases: [],
+  database: null,
   collection: null,
   documents: [],
   selected: null,
   mode: "browse",
   rawJson: false,
+  expanded: {},
 };
 
 const $ = (id) => document.getElementById(id);
+
+// The path of a collection, for the API.
+function collectionPath() {
+  return `/api/databases/${encodeURIComponent(state.database)}/collections/${encodeURIComponent(
+    state.collection
+  )}`;
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -163,30 +172,85 @@ function renderCollections() {
   const list = $("collection-list");
   list.textContent = "";
 
-  for (const collection of state.collections) {
+  if (!state.databases.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted small";
+    empty.textContent = "no databases found";
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const database of state.databases) {
     const item = document.createElement("li");
-    if (state.collection === collection.name) item.classList.add("active");
+    item.className = "database";
+
+    const head = document.createElement("div");
+    head.className = "database-head";
+
+    const caret = document.createElement("span");
+    caret.className = "caret";
+    caret.textContent = state.expanded[database.name] ? "▾" : "▸";
 
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = collection.name;
+    name.textContent = database.name;
 
     const count = document.createElement("span");
     count.className = "count";
-    count.textContent = collection.count;
+    count.textContent = database.collections.length;
 
-    item.append(name, count);
-    item.addEventListener("click", () => selectCollection(collection.name));
+    head.append(caret, name, count);
+
+    const title = document.createElement("span");
+    title.className = "db-path";
+    title.textContent = database.path;
+
+    item.append(head, title);
+    head.addEventListener("click", () => toggleDatabase(database.name));
     list.appendChild(item);
+
+    if (state.expanded[database.name]) {
+      const children = document.createElement("ul");
+      children.className = "collection-children";
+
+      for (const collection of database.collections) {
+        const child = document.createElement("li");
+        const childName = document.createElement("span");
+        childName.className = "name";
+        childName.textContent = collection.name;
+        const childCount = document.createElement("span");
+        childCount.className = "count";
+        childCount.textContent = collection.count;
+        child.append(childName, childCount);
+
+        if (
+          state.database === database.name &&
+          state.collection === collection.name
+        ) {
+          child.classList.add("active");
+        }
+        child.addEventListener("click", () =>
+          selectCollection(database.name, collection.name)
+        );
+        children.appendChild(child);
+      }
+      list.appendChild(children);
+    }
   }
+}
+
+function toggleDatabase(name) {
+  state.expanded[name] = !state.expanded[name];
+  renderCollections();
 }
 
 function renderIndexes() {
   const list = $("index-list");
   list.textContent = "";
 
-  const current = state.collections.find((c) => c.name === state.collection);
-  const indexes = current?.indexes ?? [];
+  const database = state.databases.find((d) => d.name === state.database);
+  const collection = database?.collections.find((c) => c.name === state.collection);
+  const indexes = collection?.indexes ?? [];
 
   if (!indexes.length) {
     const item = document.createElement("li");
@@ -215,26 +279,47 @@ function renderIndexes() {
 
 async function loadInfo() {
   const info = await api("/api/info");
-  $("db-path").textContent = info.path;
+  $("db-path").textContent = info.roots.join(", ");
   $("version").textContent = `v${info.version}`;
 }
 
-async function loadCollections() {
-  state.collections = await api("/api/collections");
+async function loadDatabases() {
+  state.databases = await api("/api/databases");
   renderCollections();
   renderIndexes();
 }
 
-async function selectCollection(name) {
-  state.collection = name;
+async function selectCollection(databaseName, collectionName) {
+  state.database = databaseName;
+  state.collection = collectionName;
+  state.expanded[databaseName] = true;
   renderCollections();
   renderIndexes();
 
-  $("collection-title").textContent = name;
-  const info = await api(`/api/collections/${encodeURIComponent(name)}`);
+  $("collection-title").textContent = collectionName;
+  const info = await api(
+    `/api/databases/${encodeURIComponent(databaseName)}/collections/${encodeURIComponent(
+      collectionName
+    )}`
+  );
   $("collection-meta").textContent =
     `${info.count} document${info.count === 1 ? "" : "s"} · ` +
     `${info.indexes.length} index${info.indexes.length === 1 ? "" : "es"}`;
+
+  const crumbs = $("crumbs");
+  crumbs.textContent = "";
+  for (const [index, part] of [databaseName, collectionName].entries()) {
+    if (index) {
+      const separator = document.createElement("span");
+      separator.className = "sep";
+      separator.textContent = "/";
+      crumbs.appendChild(separator);
+    }
+    const crumb = document.createElement("span");
+    crumb.className = "crumb";
+    crumb.textContent = part;
+    crumbs.appendChild(crumb);
+  }
 
   await runBrowse();
 }
@@ -265,7 +350,7 @@ async function runBrowse() {
     const limit = Number($("browse-limit").value) || 50;
 
     const result = await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/query`,
+      `${collectionPath()}/query`,
       {
         method: "POST",
         body: JSON.stringify({ filter, sort, limit }),
@@ -292,7 +377,7 @@ async function runQuery() {
     const skip = Number($("query-skip").value) || 0;
 
     const result = await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/query`,
+      `${collectionPath()}/query`,
       {
         method: "POST",
         body: JSON.stringify({ filter, projection, sort, limit, skip }),
@@ -316,7 +401,7 @@ async function runAggregate() {
     if (!Array.isArray(pipeline)) throw new Error("a pipeline must be an array");
 
     const result = await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/aggregate`,
+      `${collectionPath()}/aggregate`,
       { method: "POST", body: JSON.stringify({ pipeline }) }
     );
     state.documents = result.documents;
@@ -332,12 +417,12 @@ async function runInsert() {
   try {
     const document = parseJson($("insert-document").value, {});
     const result = await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/insert`,
+      `${collectionPath()}/insert`,
       { method: "POST", body: JSON.stringify({ document }) }
     );
     status(`inserted ${result.insertedId?.$oid ?? ""}`, "ok");
-    await loadCollections();
-    await selectCollection(state.collection);
+    await loadDatabases();
+    await selectCollection(state.database, state.collection);
   } catch (error) {
     status(error.message, "error");
   }
@@ -379,13 +464,28 @@ async function deleteSelected() {
 
   try {
     await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/documents/${id}`,
+      `${collectionPath()}/documents/${id}`,
       { method: "DELETE" }
     );
     status("deleted", "ok");
     closeDrawer();
-    await loadCollections();
-    await selectCollection(state.collection);
+    await loadDatabases();
+    await selectCollection(state.database, state.collection);
+  } catch (error) {
+    status(error.message, "error");
+  }
+}
+
+async function addDatabase() {
+  const path = window.prompt("Open a database file:");
+  if (!path) return;
+  try {
+    state.databases = await api("/api/databases/remember", {
+      method: "POST",
+      body: JSON.stringify({ path: path.trim() }),
+    });
+    renderCollections();
+    status("opened", "ok");
   } catch (error) {
     status(error.message, "error");
   }
@@ -401,7 +501,7 @@ async function runExplain() {
       {}
     );
     const plan = await api(
-      `/api/collections/${encodeURIComponent(state.collection)}/explain`,
+      `${collectionPath()}/explain`,
       { method: "POST", body: JSON.stringify({ filter }) }
     );
     renderPlan(plan);
@@ -454,7 +554,7 @@ function formatBytes(bytes) {
 
 async function loadCollectionInfo() {
   if (!state.collection) return;
-  const stats = await api(`/api/collections/${encodeURIComponent(state.collection)}/stats`);
+  const stats = await api(`${collectionPath()}/stats`);
 
   const summary = $("stats");
   summary.textContent = "";
@@ -546,27 +646,44 @@ function switchTab(mode) {
 async function boot() {
   try {
     await loadInfo();
-    await loadCollections();
+    await loadDatabases();
 
-    // Deep links: ?collection=users&tab=info
+    // Deep links: ?database=app&collection=users&tab=info
     const params = new URLSearchParams(window.location.search);
-    const wanted = params.get("collection");
+    const wantedDatabase = params.get("database");
+    const wantedCollection = params.get("collection");
     const tab = params.get("tab");
 
-    const chosen =
-      (wanted && state.collections.find((c) => c.name === wanted)) ||
-      state.collections[0];
+    const database =
+      (wantedDatabase &&
+        state.databases.find((d) => d.name === wantedDatabase)) ||
+      state.databases[0];
 
-    if (chosen) {
-      await selectCollection(chosen.name);
-      if (tab) switchTab(tab);
+    if (database) {
+      state.expanded[database.name] = true;
+      const collection =
+        (wantedCollection &&
+          database.collections.find((c) => c.name === wantedCollection)) ||
+        database.collections[0];
+
+      if (collection) {
+        await selectCollection(database.name, collection.name);
+        if (tab) switchTab(tab);
+      } else {
+        $("collection-title").textContent = database.name;
+        $("collection-meta").textContent = "This database has no collections yet.";
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No collections yet.";
+        $("results").appendChild(empty);
+      }
     } else {
-      $("collection-title").textContent = "This database is empty";
+      $("collection-title").textContent = "No databases found";
       $("collection-meta").textContent =
-        "Create a collection, then refresh this page";
+        "Point minidb-ui at a directory, or use “+ open” to add one";
       const empty = document.createElement("div");
       empty.className = "empty";
-      empty.textContent = "No collections yet.";
+      empty.textContent = "No databases found.";
       $("results").appendChild(empty);
     }
   } catch (error) {
@@ -594,6 +711,7 @@ $("drawer-close").addEventListener("click", closeDrawer);
 $("drawer-toggle").addEventListener("click", toggleRawJson);
 $("drawer-delete").addEventListener("click", deleteSelected);
 $("refresh-all").addEventListener("click", () => boot());
+$("add-database").addEventListener("click", addDatabase);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeDrawer();

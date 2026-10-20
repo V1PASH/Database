@@ -128,6 +128,56 @@ textarea { resize: vertical; min-height: 80px; }
   padding: 1px 7px;
 }
 .collection-list li.active .count { background: rgba(0,0,0,.25); color: #d6e4ff; }
+
+/* the database -> collections tree */
+
+.collection-list li.database {
+  display: block;
+  padding: 5px 4px 5px 6px;
+}
+.database-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.database-head:hover { background: var(--panel-2); }
+.caret { color: var(--muted); font-size: 10px; width: 9px; }
+.db-path {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #5d6577;
+  padding: 0 6px 3px 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collection-children { list-style: none; margin: 0; padding: 0 0 4px 14px; }
+.collection-children li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.collection-children li:hover { background: var(--panel-2); }
+.collection-children li.active { background: var(--accent-dim); color: #eaf2ff; }
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.crumbs .sep { color: #4a5265; }
+.crumbs .crumb:last-child { color: var(--text); }
+
 .index-list li {
   font-family: var(--mono);
   font-size: 11.5px;

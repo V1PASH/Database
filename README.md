@@ -235,19 +235,31 @@ Every database deserves a way to look at it. minidb ships with one -- a
 browser app in the spirit of MongoDB Compass:
 
 ```bash
-minidb-ui app.db            # or: python -m minidb.webui app.db
+minidb-ui                      # every database file in this directory
+minidb-ui ~/databases          # every database file in here
+minidb-ui app.db               # just this one
 ```
 
 No data yet? Seed a sample database first:
 
 ```bash
 python -c "from minidb import Database; from minidb.demo import seed; seed(Database('demo.db'))"
-minidb-ui demo.db
+minidb-ui
 ```
 
 <img src="docs/ui.png" alt="The minidb web UI" width="100%">
 
-It opens on **http://127.0.0.1:5433** and gives you:
+It opens on **http://127.0.0.1:5433** and shows every database it can find
+as a tree, the way Compass shows a server:
+
+```
+DATABASES
+  shop       4 collections
+    users
+    projects
+  notes      1 collection
+    ideas
+```
 
 - **Browse** -- every collection with its document count, its indexes, and a
   filter/sort/limit toolbar
@@ -262,8 +274,18 @@ It opens on **http://127.0.0.1:5433** and gives you:
 - **Document detail** -- click any document for highlighted JSON, and delete
   it from there
 
-Deep links work too: `?collection=users&tab=info` opens straight to that
-collection and tab.
+Deep links work too: `?database=shop&collection=users&tab=info` opens
+straight there.
+
+### Finding the databases
+
+minidb is embedded, so there is no server holding the databases -- each one
+is a file. The browser finds them by:
+
+- **scanning a directory** for `*.db`, `*.sqlite`, `*.sqlite3` and
+  `*.minidb` files (the current directory by default)
+- **remembering** the ones you have opened, in `~/.minidb/workspace.json`
+- the **"+ open"** button, which takes a path to any database file
 
 The server is built on `http.server` from the standard library, so it has no
 dependencies of its own. It binds to localhost and has **no authentication**:
@@ -437,6 +459,7 @@ minidb/          the database
   demo.py          sample data
   webui/           the web UI (stdlib only)
     server.py        the HTTP API
+    workspace.py     finding and holding the database files
     static/          the browser app
 schemas/         the example app's schemas
 app/             the example app

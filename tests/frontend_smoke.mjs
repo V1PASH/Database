@@ -52,6 +52,15 @@ class Element {
   set textContent(value) { this._text = String(value); this.children = []; }
   get innerHTML() { return this._html; }
   set innerHTML(value) { this._html = String(value); }
+  // The browser keeps className and classList in step; so does this.
+  get className() { return [...this.classList.set].join(" "); }
+  set className(value) {
+    this.classList.set.clear();
+    String(value)
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach((name) => this.classList.set.add(name));
+  }
   append(...nodes) { this.children.push(...nodes); }
   appendChild(node) { this.children.push(node); return node; }
   addEventListener(name, handler) {
@@ -79,13 +88,7 @@ const elements = new Map();
 const tabs = [];
 
 function makeElement(tag) {
-  const element = new Element(tag);
-  if (tag === "button" && element.classList) {
-    element.classList.add("tab");
-    element.dataset.tab = ["browse", "query", "aggregate", "insert"][tabs.length] || "";
-    tabs.push(element);
-  }
-  return element;
+  return new Element(tag);
 }
 
 const layout = new Element("div");
@@ -136,11 +139,28 @@ const documentShim = {
 /* the fake server                                                     */
 /* ------------------------------------------------------------------ */
 
-const COLLECTIONS = [
+const DATABASES = [
   {
-    name: "users",
-    count: 2,
-    indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
+    name: "shop",
+    path: "/tmp/shop.db",
+    collections: [
+      {
+        name: "orders",
+        count: 2,
+        indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
+      },
+    ],
+  },
+  {
+    name: "notes",
+    path: "/tmp/notes.db",
+    collections: [
+      {
+        name: "ideas",
+        count: 1,
+        indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
+      },
+    ],
   },
 ];
 
@@ -149,37 +169,55 @@ const DOCUMENTS = [
   { name: "Alan", age: 41, _id: { $oid: "def456" } },
 ];
 
-const routes = {
-  "/api/info": { path: "/tmp/demo.db", version: "0.1.0" },
-  "/api/collections": COLLECTIONS,
-  "/api/collections/users": {
-    name: "users",
-    count: 2,
-    indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
-    validator: null,
-  },
-  "/api/collections/users/stats": {
-    count: 2,
-    dataSize: 2048,
-    indexCount: 2,
-    indexes: [
-      { name: "_id_", key: { _id: 1 }, unique: true },
-      { name: "email_1", key: { email: 1 }, unique: true },
-    ],
-    schema: [
-      { name: "age", types: ["integer"], count: 2, optional: false },
-      { name: "name", types: ["string"], count: 1, optional: true },
-    ],
-    validator: null,
-  },
+const COLLECTION_STATS = {
+  count: 2,
+  dataSize: 2048,
+  indexCount: 2,
+  indexes: [
+    { name: "_id_", key: { _id: 1 }, unique: true },
+    { name: "email_1", key: { email: 1 }, unique: true },
+  ],
+  schema: [
+    { name: "age", types: ["int"], count: 2, optional: false },
+    { name: "name", types: ["string"], count: 1, optional: true },
+  ],
+  validator: null,
 };
 
 async function fakeFetch(url) {
-  const path = url.split("?")[0];
-  if (routes[path]) {
-    return { ok: true, status: 200, text: async () => JSON.stringify(routes[path]) };
+  const route = url.split("?")[0];
+
+  if (route === "/api/info") {
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ roots: ["/tmp"], workspace: "/tmp/registry.json", version: "0.1.0" }),
+    };
   }
-  if (path.endsWith("/query")) {
+  if (route === "/api/databases") {
+    return { ok: true, status: 200, text: async () => JSON.stringify(DATABASES) };
+  }
+  if (route === "/api/databases/shop") {
+    return { ok: true, status: 200, text: async () => JSON.stringify(DATABASES[0]) };
+  }
+  if (route === "/api/databases/shop/collections/orders") {
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          name: "orders",
+          count: 2,
+          indexes: [{ name: "_id_", key: { _id: 1 }, unique: true }],
+          validator: null,
+        }),
+    };
+  }
+  if (route.endsWith("/stats")) {
+    return { ok: true, status: 200, text: async () => JSON.stringify(COLLECTION_STATS) };
+  }
+  if (route.endsWith("/query")) {
     return {
       ok: true,
       status: 200,
@@ -187,14 +225,14 @@ async function fakeFetch(url) {
         JSON.stringify({ documents: DOCUMENTS, count: DOCUMENTS.length, total: 2, milliseconds: 1 }),
     };
   }
-  if (path.endsWith("/aggregate")) {
+  if (route.endsWith("/aggregate")) {
     return {
       ok: true,
       status: 200,
       text: async () => JSON.stringify({ documents: DOCUMENTS, count: 2, milliseconds: 1 }),
     };
   }
-  if (path.endsWith("/explain")) {
+  if (route.endsWith("/explain")) {
     return {
       ok: true,
       status: 200,
@@ -259,16 +297,19 @@ await new Promise((resolve) => setTimeout(resolve, 50));
 
 console.log("\nfrontend smoke test");
 
-check("the database path is shown", el("db-path").textContent === "/tmp/demo.db");
+check("the workspace path is shown", el("db-path").textContent === "/tmp");
 check("the version is shown", el("version").textContent === "v0.1.0");
+const databaseItems = () =>
+  el("collection-list").children.filter((child) => child.classList.contains("database"));
+
 check(
-  "collections are listed",
-  el("collection-list").children.length === 1,
-  `got ${el("collection-list").children.length}`
+  "the databases are listed",
+  databaseItems().length === 2,
+  `got ${databaseItems().length}`
 );
 check(
-  "a collection is selected",
-  el("collection-title").textContent === "users",
+  "a database is selected",
+  el("collection-title").textContent === "orders",
   el("collection-title").textContent
 );
 check(
@@ -279,6 +320,10 @@ check(
 check(
   "a document shows its name",
   el("results").children[0].containsText("Ada")
+);
+check(
+  "the breadcrumb shows the database",
+  el("crumbs").containsText("shop")
 );
 check(
   "the indexes are listed",

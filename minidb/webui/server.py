@@ -1,7 +1,8 @@
-"""A web UI for browsing a minidb database.
+"""A web UI for browsing minidb databases.
 
-    python -m minidb.webui app.db
-    minidb-ui app.db --port 8080
+    python -m minidb.webui            # every database file in this directory
+    python -m minidb.webui app.db     # just this one
+    python -m minidb.webui ~/databases # every database file in here
 
 The server is deliberately small and dependency free: it is built on
 ``http.server`` from the standard library. It binds to localhost only and
@@ -22,9 +23,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from ..database import Database
 from ..errors import MiniDBError
 from ..objectid import ObjectId
+from .workspace import Workspace
 
 __all__ = ["serve", "create_server", "to_jsonable"]
 
@@ -57,7 +58,7 @@ def to_jsonable(value: Any) -> Any:
 
 
 class _Handler(BaseHTTPRequestHandler):
-    """Routes the HTTP requests onto the database."""
+    """Routes the HTTP requests onto the databases."""
 
     server_version = "minidb-webui"
     protocol_version = "HTTP/1.1"
@@ -65,8 +66,8 @@ class _Handler(BaseHTTPRequestHandler):
     # -- plumbing ------------------------------------------------------
 
     @property
-    def database(self) -> Database:
-        return self.server.database  # type: ignore[attr-defined]
+    def workspace(self) -> Workspace:
+        return self.server.workspace  # type: ignore[attr-defined]
 
     def log_message(self, format: str, *args: Any) -> None:
         if getattr(self.server, "verbose", False):  # type: ignore[attr-defined]
@@ -109,24 +110,27 @@ class _Handler(BaseHTTPRequestHandler):
                 self._serve_static("index.html")
             elif path.startswith("/static/"):
                 self._serve_static(path[len("/static/") :])
-            elif path == "/api/collections":
-                self._send_json(self._list_collections())
-            elif path.startswith("/api/collections/"):
-                self._collection_route(path, query)
             elif path == "/api/info":
+                registry = self.workspace.registry
                 self._send_json(
                     {
-                        "database": self.database.name,
-                        "path": self.database.path,
+                        "workspace": str(registry) if registry else "none",
+                        "roots": [str(root) for root in self.workspace.roots],
                         "version": _version(),
                     }
                 )
+            elif path == "/api/databases":
+                self._send_json(self.workspace.databases())
+            elif path.startswith("/api/databases/"):
+                self._database_route(path, query)
             else:
                 self._send_error_json("not found", 404)
         except MiniDBError as exc:
             self._send_error_json(str(exc))
         except ValueError as exc:
             self._send_error_json(str(exc))
+        except FileNotFoundError as exc:
+            self._send_error_json(str(exc), 404)
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
@@ -134,14 +138,21 @@ class _Handler(BaseHTTPRequestHandler):
 
         try:
             body = self._read_json()
-            if not path.startswith("/api/collections/"):
+
+            if path == "/api/databases/remember":
+                path_to_add = body.get("path")
+                if not path_to_add:
+                    raise ValueError("the request needs a 'path'")
+                self.workspace.remember(path_to_add)
+                self._send_json({"databases": self.workspace.databases()})
+                return
+
+            if not path.startswith("/api/databases/"):
                 self._send_error_json("not found", 404)
                 return
 
-            rest = path[len("/api/collections/") :]
-            name, _, tail = rest.partition("/")
-            action, _, _ = tail.partition("/")
-            collection = self.database[name]
+            database_name, collection_name, action = self._split(path)
+            collection = self.workspace.database(database_name)[collection_name]
 
             if action == "query":
                 self._send_json(self._run_query(collection, body))
@@ -161,28 +172,38 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_error_json(str(exc))
         except ValueError as exc:
             self._send_error_json(str(exc))
+        except FileNotFoundError as exc:
+            self._send_error_json(str(exc), 404)
 
     def do_DELETE(self) -> None:  # noqa: N802
         path = unquote(urlparse(self.path).path)
 
         try:
-            if not path.startswith("/api/collections/"):
+            database_name, collection_name, action = self._split(path)
+            if not action.startswith("documents/") or not collection_name:
                 self._send_error_json("not found", 404)
                 return
 
-            name, _, tail = path[len("/api/collections/") :].partition("/")
-            action, _, document_id = tail.partition("/")
-            if action != "documents" or not document_id:
-                self._send_error_json("not found", 404)
-                return
-
-            collection = self.database[name]
+            document_id = action[len("documents/") :]
+            collection = self.workspace.database(database_name)[collection_name]
             result = collection.delete_one({"_id": _parse_id(document_id)})
             self._send_json({"deleted": result.deleted_count})
         except MiniDBError as exc:
             self._send_error_json(str(exc))
         except ValueError as exc:
             self._send_error_json(str(exc))
+
+    def _split(self, path: str) -> tuple[str, str, str]:
+        """Pull (database, collection, action) out of a request path.
+
+        The paths look like ``/api/databases/{db}/collections/{coll}/{action}``.
+        """
+        rest = path[len("/api/databases/") :]
+        database_name, _, tail = rest.partition("/")
+        if tail.startswith("collections/"):
+            tail = tail[len("collections/") :]
+        collection_name, _, action = tail.partition("/")
+        return database_name, collection_name, action
 
     # -- static files --------------------------------------------------
 
@@ -200,31 +221,30 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- api actions ---------------------------------------------------
 
-    def _list_collections(self) -> list[dict]:
-        collections = []
-        for name in self.database.list_collection_names():
-            collection = self.database[name]
-            collections.append(
-                {
-                    "name": name,
-                    "count": len(collection),
-                    "indexes": collection.list_indexes(),
-                }
-            )
-        return collections
+    def _database_route(self, path: str, query: dict[str, list[str]]) -> None:
+        database_name, collection_name, action = self._split(path)
 
-    def _collection_route(self, path: str, query: dict[str, list[str]]) -> None:
-        rest = path[len("/api/collections/") :]
-        name, _, action = rest.partition("/")
-        collection = self.database[name]
+        if not collection_name:
+            if not action:
+                for entry in self.workspace.databases():
+                    if entry["name"] == database_name:
+                        self._send_json(entry)
+                        return
+                raise FileNotFoundError(f"no database called {database_name!r}")
+            self._send_error_json("not found", 404)
+            return
+
+        collection = self.workspace.database(database_name)[collection_name]
 
         if not action:
             self._send_json(
                 {
-                    "name": name,
+                    "name": collection_name,
                     "count": len(collection),
                     "indexes": collection.list_indexes(),
-                    "validator": collection.validator.schema if collection.validator else None,
+                    "validator": collection.validator.schema
+                    if collection.validator
+                    else None,
                 }
             )
         elif action == "documents":
@@ -232,12 +252,12 @@ class _Handler(BaseHTTPRequestHandler):
             sort = _parse_sort(query.get("sort", [""])[0])
             limit = int(query.get("limit", ["50"])[0] or 0)
             skip = int(query.get("skip", ["0"])[0] or 0)
-            self._send_json(self._run_query(collection, {
-                "filter": filter,
-                "sort": sort,
-                "limit": limit,
-                "skip": skip,
-            }))
+            self._send_json(
+                self._run_query(
+                    collection,
+                    {"filter": filter, "sort": sort, "limit": limit, "skip": skip},
+                )
+            )
         elif action == "indexes":
             self._send_json(collection.list_indexes())
         elif action == "stats":
@@ -253,9 +273,7 @@ class _Handler(BaseHTTPRequestHandler):
         skip = int(body.get("skip") or 0)
 
         started = _now()
-        documents = list(
-            collection.find(filter, projection, sort, skip, limit)
-        )
+        documents = list(collection.find(filter, projection, sort, skip, limit))
         return {
             "documents": [to_jsonable(document) for document in documents],
             "count": len(documents),
@@ -363,32 +381,39 @@ class _Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, address: tuple[str, int], database: Database, verbose: bool = False):
+    def __init__(self, address: tuple[str, int], workspace: Workspace, verbose: bool = False):
         super().__init__(address, _Handler)
-        self.database = database
+        self.workspace = workspace
         self.verbose = verbose
 
 
 def create_server(
-    database: Database, host: str = "127.0.0.1", port: int = 5433, verbose: bool = False
+    workspace: Workspace,
+    host: str = "127.0.0.1",
+    port: int = 5433,
+    verbose: bool = False,
 ) -> _Server:
     """Build (but do not start) the web UI server."""
-    return _Server((host, port), database, verbose)
+    return _Server((host, port), workspace, verbose)
 
 
 def serve(
-    database: Database,
+    workspace: Workspace,
     host: str = "127.0.0.1",
     port: int = 5433,
     verbose: bool = False,
     open_browser: bool = True,
 ) -> None:
     """Run the web UI until interrupted."""
-    server = create_server(database, host, port, verbose)
+    server = create_server(workspace, host, port, verbose)
     url = f"http://{host}:{port}/"
 
+    databases = workspace.databases()
     print(f"minidb web UI  ->  {url}")
-    print(f"database       ->  {database.path}")
+    print(f"workspace     ->  {', '.join(str(root) for root in workspace.roots)}")
+    print(f"databases     ->  {len(databases)} found")
+    for entry in databases:
+        print(f"                 {entry['name']}  ({len(entry['collections'])} collections)")
     print("press ctrl+c to stop")
 
     if open_browser:
@@ -401,6 +426,7 @@ def serve(
     finally:
         server.shutdown()
         server.server_close()
+        workspace.close()
 
 
 def _open_browser(url: str) -> None:
