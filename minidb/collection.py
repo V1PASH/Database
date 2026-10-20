@@ -17,7 +17,7 @@ from typing import Any, Iterator, Sequence
 from .aggregation import run_pipeline
 from .comparison import SortKey, is_array, values_equal
 from .engine import doc_key
-from .errors import DuplicateKeyError, WriteError
+from .errors import CollectionNotFound, DuplicateKeyError, WriteError
 from .index import plan_query
 from .objectid import ObjectId
 from .query import match_document
@@ -231,10 +231,23 @@ class Collection:
         raw = self._storage.get_validator(self._name)
         return Validator(raw) if raw else None
 
+    def _write_validator(self) -> Validator | None:
+        """The validator to check a write against, if there is one yet.
+
+        A collection is created by its first insert, so a write can arrive
+        before the collection exists. In that case there is nothing to
+        validate against -- yet.
+        """
+        try:
+            raw = self._storage.get_validator(self._name)
+        except CollectionNotFound:
+            return None
+        return Validator(raw) if raw else None
+
     def _prepare(self, document: dict, is_insert: bool = True) -> dict:
         """Validate a document and fill in defaults."""
         prepared = dict(document)
-        validator = self.validator
+        validator = self._write_validator()
         if validator is not None:
             if is_insert:
                 apply_defaults(prepared, validator)
@@ -423,6 +436,16 @@ class Collection:
         with self._storage.transaction():
             self._storage.insert(self._name, key, prepared)
         return InsertOneResult(document_id)
+
+    def insert(self, document: Any) -> InsertOneResult | InsertManyResult:
+        """Insert a document, or a list of documents.
+
+        A convenience alias for :meth:`insert_one` and :meth:`insert_many`,
+        which are the explicit names -- and the ones PyMongo uses.
+        """
+        if isinstance(document, (list, tuple)):
+            return self.insert_many(document)
+        return self.insert_one(document)
 
     def insert_many(self, documents: Any) -> InsertManyResult:
         """Insert several documents."""

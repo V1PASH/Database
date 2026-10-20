@@ -150,6 +150,32 @@ def test_schema_can_be_replaced(db):
 # ---------------------------------------------------------------------------
 
 
+def test_insert_is_an_alias_for_insert_one_and_many(db):
+    db.create_collection("things")
+
+    result = db.things.insert({"name": "Ada"})
+    assert result.inserted_id is not None
+    assert db.things.count_documents() == 1
+
+    many = db.things.insert([{"name": "Alan"}, {"name": "Grace"}])
+    assert len(many.inserted_ids) == 2
+    assert db.things.count_documents() == 3
+
+
+def test_a_collection_is_created_on_the_first_insert(db):
+    """You do not have to create a collection before inserting into it."""
+    db.things.insert_one({"name": "Ada"})
+    assert "things" in db.list_collection_names()
+    assert db.things.count_documents() == 1
+
+
+def test_insert_one_and_many(db):
+    db.create_collection("things")
+    db.things.insert_one({"name": "Ada"})
+    db.things.insert_many([{"name": "Alan"}, {"name": "Grace"}])
+    assert db.things.count_documents() == 3
+
+
 def test_unique_index_rejects_duplicates(db):
     db.create_collection("users")
     db.users.create_index("email", unique=True)

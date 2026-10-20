@@ -521,6 +521,16 @@ class Storage:
                     f"a document with the id {doc_id!r} already exists"
                 )
 
+            # A collection comes into being with its first document, the
+            # way it does in MongoDB. Without this the document would be
+            # stored but the collection would never be listed.
+            if not self.collection_exists(collection):
+                self._connection.execute(
+                    "INSERT INTO _minidb_collections (name, validator, created_at) "
+                    "VALUES (?, NULL, ?)",
+                    (collection, _dt.datetime.now().timestamp()),
+                )
+
             self._connection.execute(
                 "INSERT INTO _minidb_documents (collection, doc_id, seq, data) "
                 "VALUES (?, ?, ?, ?)",
