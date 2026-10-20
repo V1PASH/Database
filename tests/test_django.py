@@ -354,3 +354,17 @@ def test_the_authentication_backend_fetches_users():
     user = backend.get_user(backend._collection.find_one({"username": "ada"})["_id"])
     assert user is not None
     assert user.username == "ada"
+
+
+def test_the_django_package_is_part_of_the_distribution():
+    """The integration has to ship inside the wheel, not just the repo."""
+    import pathlib
+
+    import minidb
+
+    package = pathlib.Path(minidb.__file__).parent / "django"
+    assert package.is_dir(), "minidb.django is missing from the installed package"
+    assert (package / "queryset.py").is_file()
+    assert (package / "cache.py").is_file()
+    assert (package / "sessions.py").is_file()
+    assert (package / "auth.py").is_file()

@@ -56,7 +56,7 @@ Documentation = "https://github.com/V1PASH/Database#readme"
 minidb-ui = "minidb.webui.__main__:main"
 
 [tool.setuptools]
-packages = ["minidb", "minidb.webui"]
+packages = ["minidb", "minidb.webui", "minidb.django"]
 
 [tool.setuptools.dynamic]
 version = { attr = "minidb.__version__" }
