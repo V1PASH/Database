@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 from typing import Any, Iterator
 
 from .collection import Collection
@@ -110,6 +111,24 @@ class Database:
         self._storage.set_validator(name, schema)
 
     # -- convenience ----------------------------------------------------
+
+    def backup(self, destination: str | os.PathLike[str]) -> str:
+        """Write a consistent copy of the database to another file.
+
+        This is safe to call while the database is in use: it uses SQLite's
+        online backup, so the copy is a consistent snapshot even if writes
+        happen at the same time.
+
+        (Copying the file yourself is *not* safe while the database is
+        open -- recent writes may still be sitting in the write-ahead log.)
+        """
+        target_path = str(destination)
+        target = sqlite3.connect(target_path)
+        try:
+            self._storage._connection.backup(target)
+        finally:
+            target.close()
+        return target_path
 
     def command(self, command: Any) -> Any:
         """A very small subset of MongoDB's ``db.command``."""

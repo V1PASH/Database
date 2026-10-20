@@ -284,6 +284,59 @@ minidb-ui app.db --host 0.0.0.0  # bind elsewhere (see the warning above)
 
 ---
 
+## Where the data lives, and is it permanent?
+
+**In one SQLite file, at the path you give it.** minidb is an *embedded*
+database, like SQLite: it lives inside your Python process and is reached
+through function calls, not through a socket. There is no server, no port
+and no daemon.
+
+```python
+db = Database("app.db")          # ./app.db, relative to the working directory
+db = Database("/var/data/app.db")  # an absolute path
+db = Database(":memory:")        # in memory only -- gone when the process exits
+```
+
+**Yes, it is permanent.** It survives the process exiting, and it survives
+the process being killed outright -- the test suite proves it by sending
+`SIGKILL` to a process that had just written 200 documents, and all 200 are
+still there afterwards.
+
+The file is a plain SQLite database, so anything that reads SQLite can read
+it:
+
+```
+$ sqlite3 app.db ".tables"
+_minidb_collections  _minidb_documents  _minidb_index_entries  _minidb_indexes ...
+```
+
+### One gotcha: relative paths
+
+A relative path is resolved against the **current working directory**, so
+the same line of code can open two different databases:
+
+```python
+Database("shop.db")     # in /project -> /project/shop.db
+                        # in /tmp     -> /tmp/shop.db
+```
+
+Use an absolute path if that matters.
+
+### Backups
+
+While the database is open, SQLite keeps recent writes in a write-ahead log
+next to the main file (`app.db-wal`), so **copying `app.db` on its own can
+lose the last few writes.** Use the built-in backup instead -- it takes a
+consistent snapshot, even while the database is being written to:
+
+```python
+db.backup("app-backup.db")     # safe to call while the database is in use
+```
+
+Copying the file by hand is fine once the database is closed.
+
+---
+
 ## The example application
 
 `app/` is a small but complete backend built on the database:

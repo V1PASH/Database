@@ -593,7 +593,55 @@ CREATE TABLE _minidb_counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
 """
 
 
-def test_an_older_database_file_is_migrated(tmp_path):
+def test_a_backup_is_a_consistent_copy(tmp_path):
+    """The copy holds everything, even though the database is still open."""
+    path = str(tmp_path / "live.db")
+    backup = str(tmp_path / "backup.db")
+
+    db = Database(path)
+    db.create_collection("events")
+    db.events.insert_one({"n": 1})
+    db.events.insert_one({"n": 2})
+
+    db.backup(backup)
+    db.events.insert_one({"n": 3})   # written after the backup was taken
+
+    restored = Database(backup)
+    try:
+        assert restored.events.count_documents() == 2
+        assert restored.events.find_one({"n": 3}) is None
+    finally:
+        restored.close()
+        db.close()
+
+
+def test_data_survives_a_hard_kill(tmp_path):
+    """A crash must not lose data that was written."""
+    import signal
+    import subprocess
+    import sys
+
+    path = str(tmp_path / "crash.db")
+    script = (
+        "import os, signal, sys\n"
+        "from minidb import Database\n"
+        f"db = Database({path!r})\n"
+        "db.create_collection('events')\n"
+        "for n in range(200):\n"
+        "    db.events.insert_one({'n': n})\n"
+        "os.kill(os.getpid(), signal.SIGKILL)\n"
+    )
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True)
+    assert result.returncode == -signal.SIGKILL
+
+    db = Database(path)
+    try:
+        assert db.events.count_documents() == 200
+    finally:
+        db.close()
+
+
+def test_old_database_file_is_migrated(tmp_path):
     """Opening a file written by an earlier version upgrades it in place."""
     path = str(tmp_path / "old.db")
     connection = sqlite3.connect(path)
