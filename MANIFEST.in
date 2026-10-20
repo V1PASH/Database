@@ -2,10 +2,12 @@ include LICENSE
 include README.md
 include pyproject.toml
 
-recursive-include tests *.py
+recursive-include tests *.py *.mjs
 recursive-include app *.py
 recursive-include schemas *.py
 recursive-include bench *.py
+recursive-include django_example *.py *.html
+recursive-include docs *.png
 
 global-exclude __pycache__
 global-exclude *.py[cod]

@@ -44,7 +44,7 @@ from .query import match_document
 from .update import apply_update
 from .validation import Validator
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 __all__ = [
     "Database",
