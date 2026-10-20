@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "minidb"
+name = "minidb-db"
 description = "A MongoDB-style document database written from scratch, with schema validation and a built-in web UI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -48,6 +48,7 @@ dev = [
 Homepage = "https://github.com/V1PASH/Database"
 Repository = "https://github.com/V1PASH/Database"
 Issues = "https://github.com/V1PASH/Database/issues"
+Documentation = "https://github.com/V1PASH/Database#readme"
 
 [project.scripts]
 minidb-ui = "minidb.webui.__main__:main"

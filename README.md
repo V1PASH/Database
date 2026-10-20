@@ -52,7 +52,7 @@ they skip and the rest of the suite still runs.
 ## Getting started
 
 ```bash
-pip install minidb                # from PyPI
+pip install minidb-db            # from PyPI
 pip install -e ".[dev]"           # from a clone, with the test tools
 ```
 
@@ -63,6 +63,15 @@ python -m app.demo          # a guided tour of the example app
 python -m bench.benchmark   # what indexes buy you
 pytest tests/ -q            # the test suite
 minidb-ui app.db            # browse the database in your browser
+```
+
+The import name is `minidb`, whatever the package is called:
+
+```python
+from minidb import Database
+
+db = Database("app.db")
+db.users.insert_one({"name": "Ada", "email": "ada@example.com"})
 ```
 
 The package has **no runtime dependencies** -- it is pure Python on top of

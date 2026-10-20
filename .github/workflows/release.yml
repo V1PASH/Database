@@ -4,7 +4,7 @@ name: Release
 # token to store in this repository. Before the first release, add this
 # repository as a trusted publisher on PyPI:
 #
-#   https://pypi.org/manage/project/minidb/settings/publishing/
+#   https://pypi.org/manage/project/minidb-db/settings/publishing/
 #
 #   Owner:      V1PASH
 #   Repository: V1PASH/Database
