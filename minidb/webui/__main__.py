@@ -21,7 +21,12 @@ def main(argv: list[str] | None = None) -> int:
         help="the database file to open (use ':memory:' for a scratch database)",
     )
     parser.add_argument("--host", default="127.0.0.1", help="the address to bind to")
-    parser.add_argument("--port", type=int, default=5433, help="the port to listen on")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5433,
+        help="the port to listen on (default: 5433)",
+    )
     parser.add_argument(
         "--no-browser", action="store_true", help="do not open a browser window"
     )
