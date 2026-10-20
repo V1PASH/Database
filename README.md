@@ -296,6 +296,22 @@ behave differently. Everything here is a deliberate limitation, not a bug:
 
 ---
 
+## Continuous integration
+
+Every push runs the suite on Python 3.11, 3.12 and 3.13 -- against a real
+MongoDB service, so the parity tests actually run rather than skipping
+themselves. The browser code is checked under node, and the package is
+built, checked with `twine` and installed into a clean environment.
+
+Releasing to PyPI is one tag away, once the repository is registered as a
+trusted publisher on PyPI:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+---
+
 ## Where to take it next
 
 The interesting problems in a database are all still open here:

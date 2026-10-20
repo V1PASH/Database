@@ -1,0 +1,43 @@
+name: Release
+
+# Publishing to PyPI happens through Trusted Publishing, so there is no
+# token to store in this repository. Before the first release, add this
+# repository as a trusted publisher on PyPI:
+#
+#   https://pypi.org/manage/project/minidb/settings/publishing/
+#
+#   Owner:      V1PASH
+#   Repository: V1PASH/Database
+#   Workflow:   release.yml
+#
+# Then push a tag and the package goes out:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write   # the token PyPI trusts the workflow to request
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

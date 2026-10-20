@@ -10,13 +10,14 @@ The whole module is skipped when no MongoDB server is reachable.
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from typing import Any
 
 import pytest
 
 from minidb import Database
 
-MONGO_URI = "mongodb://127.0.0.1:27017"
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://127.0.0.1:27017")
 
 pymongo = pytest.importorskip("pymongo")
 
