@@ -104,15 +104,31 @@ def bump(version: str, part: str) -> str:
 
 
 def published_versions() -> set[str]:
-    """The versions already on PyPI."""
+    """The versions already on PyPI.
+
+    Uses requests (which twine already needs) rather than urllib, because
+    urllib's certificate store is not always set up on every machine.
+    """
     try:
-        with urllib.request.urlopen(f"{PYPI}/{PACKAGE}/json", timeout=30) as response:
-            data = json.load(response)
+        import requests
+    except ImportError:  # pragma: no cover - twine is a dev dependency
+        requests = None
+
+    try:
+        if requests is not None:
+            response = requests.get(f"{PYPI}/{PACKAGE}/json", timeout=30)
+            if response.status_code == 404:
+                return set()
+            response.raise_for_status()
+            data = response.json()
+        else:
+            with urllib.request.urlopen(f"{PYPI}/{PACKAGE}/json", timeout=30) as reply:
+                data = json.load(reply)
     except urllib.error.HTTPError as error:
         if error.code == 404:
             return set()
         raise
-    except OSError as error:
+    except Exception as error:
         raise Failure(f"could not reach PyPI: {error}") from error
     return set(data.get("releases", {}))
 
