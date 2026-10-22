@@ -505,6 +505,43 @@ behave differently. Everything here is a deliberate limitation, not a bug:
 
 ---
 
+## Releasing
+
+`release.py` does the whole thing, so a release does not need a
+conversation:
+
+```bash
+python release.py                  # 0.7.0 -> 0.7.1, then publish
+python release.py --minor          # 0.7.0 -> 0.8.0
+python release.py --major          # 0.7.0 -> 1.0.0
+python release.py --version 1.2.3  # an exact version
+python release.py --dry-run        # everything except the upload
+python release.py --tag-only       # bump, commit, tag, push -- the workflow uploads
+```
+
+It checks that the working tree is clean, that you are on `main`, and that
+`main` is in step with the remote; runs the tests; bumps the version in
+`minidb/__init__.py`; builds the wheel and the sdist; checks them with
+`twine check`; verifies the built wheel really is the new version; uploads
+to PyPI; and commits, tags and pushes the release.
+
+It stops with a clear message rather than doing something half-finished if
+the version is already on PyPI, if the tree is dirty, if you are not on
+`main`, or if `main` is behind the remote.
+
+The upload needs a PyPI API token in `~/.pypirc`:
+
+```ini
+[pypi]
+username = __token__
+password = pypi-AgEIcHlwaS5vcmc...
+```
+
+Once this repository is registered as a **trusted publisher** on PyPI, use
+`--tag-only` and the release workflow does the uploading instead.
+
+---
+
 ## Continuous integration
 
 Every push runs the suite on Python 3.11, 3.12 and 3.13 -- against a real
