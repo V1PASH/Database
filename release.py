@@ -288,21 +288,24 @@ def main(argv: list[str] | None = None) -> int:
         run_tests()
 
         set_version(new_version)
+        committed = False
         try:
             artifacts = build()
             check_artifacts(new_version)
-        except Exception:
-            set_version(version)   # put the version back
-            raise
 
-        if arguments.dry_run:
-            print("\nDry run: nothing was uploaded or pushed.")
-            return 0
+            if arguments.dry_run:
+                print("\nDry run: nothing was uploaded or pushed.")
+                return 0
 
-        if not arguments.tag_only:
-            upload(artifacts)
+            if not arguments.tag_only:
+                upload(artifacts)
 
-        commit_and_tag(new_version, push=True)
+            commit_and_tag(new_version, push=True)
+            committed = True
+        finally:
+            if not committed:
+                # Put the version back, so the tree is as it was.
+                set_version(version)
 
         if arguments.tag_only:
             print(
