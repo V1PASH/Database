@@ -66,6 +66,30 @@ pytest tests/ -q            # the test suite
 minidb-ui app.db            # browse the database in your browser
 ```
 
+Or, through the task runner (go-task), where each step has a name:
+
+```
+$ task
+* bench:               Run the benchmarks
+* build:               Build the wheel and the sdist
+* check:               Run the pre-publish checks
+* clean:               Remove the build artefacts
+* demo:                Run the example application
+* install:             Install the package and its development extras
+* lint:                Check for unused imports and undefined names
+* publish:             Build, check and upload the package to PyPI
+* publish-test:        Build, check and upload the package to TestPyPI
+* release:             Bump the version, publish it and tag the release
+* test:                Run the test suite
+* ui:                  Browse a database in the browser
+```
+
+```bash
+task test
+task ui
+task release
+```
+
 The import name is `minidb`, whatever the package is called:
 
 ```python
@@ -511,13 +535,16 @@ behave differently. Everything here is a deliberate limitation, not a bug:
 conversation:
 
 ```bash
-python release.py                  # 0.7.0 -> 0.7.1, then publish
-python release.py --minor          # 0.7.0 -> 0.8.0
+task release                       # 0.7.0 -> 0.7.1, then publish
+task release-minor                 # 0.7.0 -> 0.8.0
+task release-dry                   # everything except the upload
 python release.py --major          # 0.7.0 -> 1.0.0
 python release.py --version 1.2.3  # an exact version
-python release.py --dry-run        # everything except the upload
 python release.py --tag-only       # bump, commit, tag, push -- the workflow uploads
 ```
+
+`task publish` is the same upload without the version bump: it builds the
+distributions, runs `scripts/prepublish.py`, and hands them to `twine`.
 
 It checks that the working tree is clean, that you are on `main`, and that
 `main` is in step with the remote; runs the tests; bumps the version in
