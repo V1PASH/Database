@@ -1,0 +1,119 @@
+# minidb — build, test and publish.
+#
+#   task              list the tasks
+#   task test         run the test suite
+#   task build        build the wheel and the sdist
+#   task publish      build, check and upload to PyPI
+#   task publish-test upload to TestPyPI instead
+#   task check        the pre-publish checks on their own
+#   task release      bump the version, publish and tag it
+#   task clean        remove the build artefacts
+#
+# `publish` refuses to run on a dirty working tree, on a version that is
+# already published, or on a version the package and the metadata
+# disagree about.
+
+version: "3"
+
+vars:
+  # The quotes matter: the path can contain a space, and go-task does not
+  # quote variable expansions for you.
+  PYTHON: '"{{.ROOT_DIR}}/.venv/bin/python"'
+  PACKAGE: minidb-db
+
+tasks:
+  default:
+    desc: List the available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install the package and its development extras
+    cmds:
+      - "{{.PYTHON}} -m pip install -e '.[dev]'"
+
+  test:
+    desc: Run the test suite
+    cmds:
+      - "{{.PYTHON}} -m pytest tests/ -q"
+
+  lint:
+    desc: Check for unused imports and undefined names
+    cmds:
+      - "{{.PYTHON}} -m pyflakes minidb app schemas bench tests django_example release.py scripts"
+
+  clean:
+    desc: Remove the build artefacts
+    cmds:
+      - rm -rf dist build
+      - find . -name '__pycache__' -type d -prune -exec rm -rf {} +
+
+  build:
+    desc: Build the wheel and the sdist
+    # Always rebuild: a stale artefact is worse than a slow build.
+    run: always
+    cmds:
+      - rm -rf dist build
+      - "{{.PYTHON}} -m build"
+      - "{{.PYTHON}} -m twine check --strict dist/*"
+    sources:
+      - pyproject.toml
+      - README.md
+      - LICENSE
+      - minidb/**
+    generates:
+      - dist/*.whl
+      - dist/*.tar.gz
+
+  check:
+    desc: Run the pre-publish checks
+    cmds:
+      - "{{.PYTHON}} scripts/prepublish.py"
+
+  publish:
+    desc: Build, check and upload the package to PyPI
+    deps: [build]
+    cmds:
+      - "{{.PYTHON}} scripts/prepublish.py"
+      - echo "uploading {{.PACKAGE}} to PyPI..."
+      - "{{.PYTHON}} -m twine upload --skip-existing dist/*"
+    interactive: true
+
+  publish-test:
+    desc: Build, check and upload the package to TestPyPI
+    deps: [build]
+    cmds:
+      - "{{.PYTHON}} scripts/prepublish.py --skip-published-check"
+      - echo "uploading {{.PACKAGE}} to TestPyPI..."
+      - "{{.PYTHON}} -m twine upload --skip-existing --repository testpypi dist/*"
+    interactive: true
+
+  release:
+    desc: Bump the version, publish it and tag the release
+    cmds:
+      - "{{.PYTHON}} release.py"
+
+  release-minor:
+    desc: Bump the minor version, publish it and tag the release
+    cmds:
+      - "{{.PYTHON}} release.py --minor"
+
+  release-dry:
+    desc: Rehearse a release without uploading anything
+    cmds:
+      - "{{.PYTHON}} release.py --dry-run"
+
+  demo:
+    desc: Run the example application
+    cmds:
+      - "{{.PYTHON}} -m app.demo"
+
+  bench:
+    desc: Run the benchmarks
+    cmds:
+      - "{{.PYTHON}} -m bench.benchmark"
+
+  ui:
+    desc: Browse a database in the browser
+    cmds:
+      - "{{.PYTHON}} -m minidb.webui app.db"

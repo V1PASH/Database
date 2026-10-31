@@ -25,3 +25,6 @@ dist/
 voice_service/*.db
 voice_service/*.db-wal
 voice_service/*.db-shm
+
+# go-task scratch directory.
+.task/
